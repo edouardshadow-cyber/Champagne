@@ -2,34 +2,44 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import os
+import time
 
 # Configuration de la page
-st.set_page_config(page_title="Champagne Rating", page_icon="🥂", layout="centered")
+st.set_page_config(page_title="Champagne Battle", page_icon="🥂", layout="centered")
 
 # --- CONSTANTES ---
-FILE_NOTES = "notes_v2.csv"
+FILE_NOTES = "notes_v3.csv"
 FILE_CHAMPAGNES = "liste_champagnes.csv"
 ADMIN_PASSWORD = "admin"
 
+# Listes étoffées
 AROMES_NEZ = {
-    "🍋 Agrumes": "Citron, Pamplemousse",
-    "🍐 Fruits Blancs": "Poire, Pomme, Pêche",
-    "🌸 Floral": "Fleurs blanches, Acacia",
-    "🍞 Brioche": "Toast, Beurre, Levure",
-    "🌰 Fruits Secs": "Noisette, Amande",
-    "🍯 Miel": "Miel, Cire"
+    "🍋 Agrumes": "Citron, Pamplemousse, Clémentine, Zeste",
+    "🍏 Fruits Blancs": "Pomme verte, Poire, Pêche de vigne",
+    "🍑 Fruits Jaunes": "Abricot, Mirabelle, Pêche jaune",
+    "🍍 Exotique": "Ananas, Mangue, Passion, Litchi",
+    "🍓 Fruits Rouges": "Fraise, Framboise, Groseille, Cerise (Rosé)",
+    "🌸 Floral": "Fleurs blanches, Acacia, Chèvrefeuille, Rose, Tilleul",
+    "🌿 Végétal": "Herbe coupée, Fougère, Menthe, Thé",
+    "🌰 Fruits Secs": "Noisette, Amande fraîche, Figue sèche",
+    "🍞 Boulangerie": "Brioche, Toast grillé, Mie de pain, Levure",
+    "🧈 Pâtisserie": "Beurre frais, Crème, Biscuit, Pâte d'amande",
+    "🍯 Miel/Cire": "Miel d'acacia, Cire d'abeille, Pain d'épices",
+    "🪵 Boisé/Épicé": "Vanille, Fût de chêne, Poivre blanc, Cannelle",
+    "🔥 Empyreumatique": "Fumé, Cacao, Café, Craie mouillée"
 }
 
 AROMES_BOUCHE = {
-    "⚡ Acidité": "Vif, Tranchant",
-    "🍬 Sucre": "Dosé, Rond",
-    "🧈 Gras": "Beurré, Crémeux",
-    "💎 Minéral": "Craie, Salin",
-    "🪵 Boisé": "Fût, Vanille",
-    "🍒 Fruits Rouges": "Fraise, Framboise (Rosé)"
+    "⚡ Attaque Vive": "Tranchant, Nerveux, Droit",
+    "☁️ Attaque Souple": "Rond, Ample, Velouté",
+    "🫧 Effervescence": "Bulles fines, Mousse crémeuse, Pétillant agressif",
+    "⚖️ Équilibre": "Bien dosé, Trop sucré, Trop acide, Vineux",
+    "💎 Minéralité": "Salin, Craie, Calcaire, Iode",
+    "🍂 Évolution": "Oxydatif (Pomme blette), Rancio, Mature",
+    "⏱️ Longueur": "Courte, Moyenne, Persistante, Interminable"
 }
 
-# --- FONCTIONS DE GESTION DE DONNÉES ---
+# --- FONCTIONS ---
 def load_data(file, columns):
     if not os.path.exists(file):
         return pd.DataFrame(columns=columns)
@@ -39,22 +49,33 @@ def save_data(df, file):
     df.to_csv(file, index=False)
 
 # --- INTERFACE ---
+
+# 1. EN-TÊTE & IDENTIFICATION (Mobile Friendly)
 st.title("🥂 Champagne Battle")
+
+# Zone d'identification mise en avant pour le mobile
+col_id, col_live = st.columns([2, 1])
+with col_id:
+    user_name = st.text_input("👤 Ton Prénom (Obligatoire)", placeholder="Ex: Thomas")
+with col_live:
+    st.write("") # Spacer
+    st.write("") 
+    auto_refresh = st.toggle("🔄 Mode Live", value=False, help="Active ceci pour voir les notes des autres arriver en direct sans toucher à rien.")
+
+if auto_refresh:
+    time.sleep(5)
+    st.rerun()
+
 st.markdown("---")
 
-# 1. BARRE LATÉRALE (USER + ADMIN)
+# 2. GESTION ADMIN (Cachée dans un expander en bas ou sidebar discrète)
 with st.sidebar:
-    st.header("👤 Identité")
-    user_name = st.text_input("Ton Prénom", key="user_name")
-    
-    st.markdown("---")
     st.header("⚙️ Admin")
     admin_pwd = st.text_input("Mot de passe", type="password")
     
-    # Gestion des Champagnes (Admin seulement)
     if admin_pwd == ADMIN_PASSWORD:
-        st.success("Mode Admin activé")
-        new_champ = st.text_input("Ajouter un Champagne à la liste")
+        st.success("Mode Admin")
+        new_champ = st.text_input("Ajouter un Champagne")
         if st.button("Ajouter"):
             df_champs = load_data(FILE_CHAMPAGNES, ["Nom"])
             if new_champ and new_champ not in df_champs["Nom"].values:
@@ -65,137 +86,139 @@ with st.sidebar:
                 st.rerun()
 
 # Chargement des données
-df_notes = load_data(FILE_NOTES, ["User", "Champagne", "Robe", "Bulles", "Nez", "Bouche", "Finale", "Tags_Nez", "Tags_Bouche"])
+df_notes = load_data(FILE_NOTES, ["User", "Champagne", "Acidite", "Bulles", "Nez", "Bouche", "Finale", "Tags_Nez", "Tags_Bouche"])
 df_champs = load_data(FILE_CHAMPAGNES, ["Nom"])
 
-# Si aucun champagne n'existe, on en met un par défaut
 if df_champs.empty:
-    df_champs = pd.DataFrame({"Nom": ["Exemple: Ruinart Blanc de Blancs"]})
+    df_champs = pd.DataFrame({"Nom": ["Exemple: Bollinger Special Cuvée"]})
     save_data(df_champs, FILE_CHAMPAGNES)
 
-# Bouton de rafraîchissement global
-if st.button("🔄 Actualiser les résultats (Voir les notes des potes)"):
-    st.rerun()
-
-# 2. LISTE DES CHAMPAGNES (ACCORDÉON)
+# 3. LISTE DES VINS
 st.subheader("🍾 La Carte des Vins")
 
 champagne_list = df_champs["Nom"].unique()
 
 for champ in champagne_list:
-    # On crée un container extensible pour chaque champagne
     with st.expander(f"🥂 {champ}", expanded=False):
         
-        # --- A. VISUALISATION (Le Graphique) ---
+        # --- A. VISUALISATION ---
         df_this_champ = df_notes[df_notes["Champagne"] == champ]
         
         if not df_this_champ.empty:
-            # Calcul de la moyenne
-            cols_score = ["Robe", "Bulles", "Nez", "Bouche", "Finale"]
-            avg_scores = df_this_champ[cols_score].mean().tolist()
+            cols_score = ["Acidite", "Bulles", "Nez", "Bouche", "Finale"]
             
             # Graphique Radar
             categories = cols_score
             fig = go.Figure()
-            
-            # Moyenne du groupe
+
+            # 1. Les notes individuelles (5 premières max) pour voir les avis divergents
+            colors = ['#FF9999', '#99FF99', '#9999FF', '#FFFF99', '#FF99FF']
+            for i, (idx, row) in enumerate(df_this_champ.head(5).iterrows()):
+                fig.add_trace(go.Scatterpolar(
+                    r=row[cols_score],
+                    theta=categories,
+                    fill=None,
+                    name=str(row['User']),
+                    line_color=colors[i % len(colors)],
+                    opacity=0.3,
+                    showlegend=True
+                ))
+
+            # 2. La Moyenne (Grosse ligne)
+            avg_scores = df_this_champ[cols_score].mean().tolist()
             fig.add_trace(go.Scatterpolar(
                 r=avg_scores,
                 theta=categories,
                 fill='toself',
-                name='Moyenne Groupe',
-                line_color='gold'
+                name='Moyenne',
+                line=dict(color='gold', width=4),
+                opacity=0.9
             ))
-            
-            # Note de l'utilisateur (s'il a voté)
-            if user_name and user_name in df_this_champ["User"].values:
-                user_scores = df_this_champ[df_this_champ["User"] == user_name].iloc[-1][cols_score].tolist()
-                fig.add_trace(go.Scatterpolar(
-                    r=user_scores,
-                    theta=categories,
-                    fill='toself',
-                    name=f'Note de {user_name}',
-                    line_color='pink',
-                    opacity=0.4
-                ))
             
             fig.update_layout(
                 polar=dict(radialaxis=dict(visible=True, range=[0, 10])),
                 margin=dict(l=40, r=40, t=20, b=20),
-                height=300
+                height=350,
+                legend=dict(orientation="h", y=-0.1)
             )
             st.plotly_chart(fig, use_container_width=True)
             
-            # Affichage des tags populaires (Aromes)
-            st.markdown("**🏷️ Ce qu'on en dit :**")
+            # Tags populaires
             all_tags = []
             if "Tags_Nez" in df_this_champ.columns:
-                all_tags += [tag for tags in df_this_champ["Tags_Nez"].dropna() for tag in tags.split(",")]
+                all_tags += [tag.strip() for tags in df_this_champ["Tags_Nez"].dropna() for tag in tags.split(",")]
             if "Tags_Bouche" in df_this_champ.columns:
-                all_tags += [tag for tags in df_this_champ["Tags_Bouche"].dropna() for tag in tags.split(",")]
+                all_tags += [tag.strip() for tags in df_this_champ["Tags_Bouche"].dropna() for tag in tags.split(",")]
             
             if all_tags:
                 from collections import Counter
                 counts = Counter(all_tags)
-                # Affichage sous forme de badges
-                cols = st.columns(len(counts))
+                st.markdown("**🏷️ Mots clés du groupe :**")
                 tags_html = ""
-                for tag, count in counts.most_common(5):
-                    tags_html += f"<span style='background-color:#f0f2f6; padding:5px; border-radius:5px; margin-right:5px;'>{tag} ({count})</span>"
+                for tag, count in counts.most_common(6):
+                    tags_html += f"<span style='background-color:#31333F; color:white; padding:4px 8px; border-radius:10px; margin-right:5px; font-size:0.8em'>{tag} ({count})</span>"
                 st.markdown(tags_html, unsafe_allow_html=True)
-                
-            st.write(f"*Nombre de votants : {len(df_this_champ)}*")
-            
+                st.write("") # Spacer
+
         else:
-            st.info("Pas encore de note pour ce champagne.")
+            st.info("Soyez le premier à noter !")
 
         # --- B. FORMULAIRE DE NOTATION ---
-        st.markdown("---")
-        st.write(f"📝 **Noter {champ}**")
+        st.markdown("#### 📝 Ma Note")
         
         if not user_name:
-            st.warning("Rentre ton prénom dans la barre latérale pour noter !")
+            st.error("⚠️ Rentre ton prénom tout en haut de la page pour pouvoir noter !")
         else:
-            # On utilise un formulaire pour ne pas recharger la page à chaque clic
             with st.form(key=f"form_{champ}"):
                 c1, c2 = st.columns(2)
                 with c1:
-                    score_robe = st.slider("Robe", 0, 10, 5)
-                    score_bulles = st.slider("Bulles", 0, 10, 5)
-                    score_nez = st.slider("Nez (Qualité)", 0, 10, 5)
+                    st.caption("Structure")
+                    score_acidite = st.slider("Acidité / Vivacité", 0, 10, 5, key=f"ac_{champ}")
+                    score_bulles = st.slider("Bulles (Finesse)", 0, 10, 5, key=f"bu_{champ}")
+                    score_nez = st.slider("Nez (Intensité/Qualité)", 0, 10, 5, key=f"ne_{champ}")
                 with c2:
-                    score_bouche = st.slider("Bouche", 0, 10, 5)
-                    score_finale = st.slider("Finale", 0, 10, 5)
+                    st.caption("Plaisir")
+                    score_bouche = st.slider("Bouche (Plaisir global)", 0, 10, 5, key=f"bo_{champ}")
+                    score_finale = st.slider("Longueur en bouche", 0, 10, 5, key=f"fi_{champ}")
                 
-                st.markdown("**👃 Arômes (Nez)**")
-                tags_nez = st.multiselect("Sélectionne les marqueurs", list(AROMES_NEZ.keys()), key=f"nez_{champ}")
+                with st.expander("Voir les arômes détaillés (Optionnel)"):
+                    st.markdown("**👃 Au Nez**")
+                    tags_nez = st.multiselect("Choisis...", list(AROMES_NEZ.keys()), key=f"tn_{champ}")
+                    
+                    st.markdown("**👅 En Bouche**")
+                    tags_bouche = st.multiselect("Choisis...", list(AROMES_BOUCHE.keys()), key=f"tb_{champ}")
                 
-                st.markdown("**👅 Sensations (Bouche)**")
-                tags_bouche = st.multiselect("Sélectionne les marqueurs", list(AROMES_BOUCHE.keys()), key=f"bouche_{champ}")
-                
-                submitted = st.form_submit_button("Envoyer ma note 🚀")
+                submitted = st.form_submit_button("Envoyer ma note 🚀", use_container_width=True)
                 
                 if submitted:
-                    # Création de la ligne de données
+                    # Traitement des tags (on concatène les valeurs des dictionnaires pour simplifier)
+                    str_tags_nez = ",".join([AROMES_NEZ[k] for k in tags_nez]) # On stocke les descriptions
+                    str_tags_bouche = ",".join([AROMES_BOUCHE[k] for k in tags_bouche])
+                    # Ou juste les clés si on préfère que ce soit court. Ici je garde les clés pour l'affichage plus propre
+                    # Modif : On va stocker les CLÉS (ex: "Agrumes") pour que le nuage de mots soit lisible
+                    final_tags_nez = ",".join(tags_nez)
+                    final_tags_bouche = ",".join(tags_bouche)
+
                     new_entry = {
                         "User": user_name,
                         "Champagne": champ,
-                        "Robe": score_robe,
+                        "Acidite": score_acidite,
                         "Bulles": score_bulles,
                         "Nez": score_nez,
                         "Bouche": score_bouche,
                         "Finale": score_finale,
-                        "Tags_Nez": ",".join(tags_nez),
-                        "Tags_Bouche": ",".join(tags_bouche)
+                        "Tags_Nez": final_tags_nez,
+                        "Tags_Bouche": final_tags_bouche
                     }
                     
-                    # Sauvegarde
                     df_current = load_data(FILE_NOTES, list(new_entry.keys()))
-                    # On supprime l'ancienne note de cet user pour ce champagne s'il y en a une (mise à jour)
+                    # Update si déjà noté
                     df_current = df_current[~((df_current["User"] == user_name) & (df_current["Champagne"] == champ))]
                     
                     df_new = pd.DataFrame([new_entry])
                     df_final = pd.concat([df_current, df_new], ignore_index=True)
                     save_data(df_final, FILE_NOTES)
                     
-                    st.success("Note enregistrée ! Clique sur 'Actualiser' pour voir le graph.")
+                    st.success("C'est noté !")
+                    time.sleep(1) # Petit temps pour lire le message
+                    st.rerun()
